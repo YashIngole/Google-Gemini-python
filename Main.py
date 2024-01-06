@@ -1,4 +1,5 @@
 import re
+from googlesearch import search
 from bs4 import BeautifulSoup
 from google.cloud import firestore
 import google.generativeai as genai
@@ -16,7 +17,7 @@ db = firestore.Client.from_service_account_json(firebase_credentials_path)
 def visit_link_and_extract_image(link):
     response = requests.get(link)
     soup = BeautifulSoup(response.text, 'html.parser')
-    
+
     # Extract the image URL from the article page
     image_element = soup.find('img')  # You might need a more specific selector here
     news_image_url = image_element['src'] if image_element and 'src' in image_element.attrs else "No image URL found"
@@ -25,23 +26,29 @@ def visit_link_and_extract_image(link):
 
 # Function to search for the latest Technology news and extract content
 def search_and_extract_technology_news():
-    search_query = 'latest technology news'
-    search_url = f'https://www.google.com/search?q={search_query}&tbm=nws'
-    response = requests.get(search_url)
+    search_query = 'flutter news site:news.google.com'
+    news_link = None
+
+    # Search for the latest news and extract the first link
+    for result in search(search_query, num_results=1):
+        news_link = result
+        break
+
+    if not news_link:
+        print("No news link found")
+        return None, None, None
+
+    response = requests.get(news_link)
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Extract the relevant information from the search results
-    title_element = soup.find('div', {'class': 'BNeawe vvjwJb AP7Wnd'})
+    # Extract the relevant information from the news page
+    title_element = soup.find('h1')
     news_title = title_element.text if title_element else "No news title found"
 
-    description_element = soup.find('div', {'class': 'BNeawe s3v9rd AP7Wnd'})
-    news_description = description_element.text if description_element else "No news description found"
+    description_element = soup.find('meta', attrs={'name': 'description'})
+    news_description = description_element['content'] if description_element and 'content' in description_element.attrs else "No news description found"
 
-    # Extract the link to the first news result
-    link_element = soup.find('a', {'href': re.compile(r'https://news\.google\.com/')})
-    news_link = link_element['href'] if link_element and 'href' in link_element.attrs else None
-
-    # Use the link to extract the image URL
+    # Use the improved method to extract the image URL
     news_image_url = visit_link_and_extract_image(news_link) if news_link else "No image URL found"
 
     return news_title, news_description, news_image_url
