@@ -24,9 +24,16 @@ def visit_link_and_extract_image(link):
 
     return news_image_url
 
+# Function to enhance the news title using Google Gemini API
+def enhance_news_title_with_gemini(news_title):
+    model = genai.GenerativeModel('gemini-pro')
+    enhancement_query = f'Enhance this news title but keep it under 20 words: {news_title}'
+    response = model.generate_content(enhancement_query)
+    return response.text
+
 # Function to search for the latest Technology news and extract content
 def search_and_extract_technology_news():
-    search_query = 'flutter news site:news.google.com'
+    search_query = 'python latest news site:news.google.com'
     news_link = None
 
     # Search for the latest news and extract the first link
@@ -51,34 +58,38 @@ def search_and_extract_technology_news():
     # Use the improved method to extract the image URL
     news_image_url = visit_link_and_extract_image(news_link) if news_link else "No image URL found"
 
-    return news_title, news_description, news_image_url
+    # Enhance the news title using Google Gemini API
+    enhanced_title = enhance_news_title_with_gemini(news_title)
+
+    return enhanced_title, news_description, news_image_url, news_link
 
 # Fetch the latest Technology news
-news_title, news_description, news_image_url = search_and_extract_technology_news()
+news_title, news_description, news_image_url, news_link = search_and_extract_technology_news()
 
 # Print the plain output
 print(f"News Title: {news_title}")
 print(f"News Description: {news_description}")
 print(f"Image URL: {news_image_url}")
+print(f"Source URL: {news_link}")
 print()
 
 # Use the Google Gemini API to summarize the news content under 60 words
 model = genai.GenerativeModel('gemini-pro')
-summary_query = f'Summarize this news in 50-60 words: {news_description}'
+summary_query = f'Summarize this description in form of paragraph and easy to understand similar to inshorts news in 50-60 words: {news_description}'
 response = model.generate_content(summary_query)
 print(response.text)
 
 # Extract relevant information using regular expressions
-news_summary_match = re.search(r'\*\*Summary:\*\* (.+)', response.text)
-news_summary = news_summary_match.group(1).strip() if news_summary_match else "Unable to extract summary"
 
 # Push the news data to Firestore
-news_collection = db.collection('News')  # Replace 'News' with your Firestore collection name
+news_collection = db.collection('news')  # Replace 'News' with your Firestore collection name
 news_document = news_collection.add({
     'Title': news_title,
-    'Summary': news_summary,
+    'Summary': response.text,
     'ImageUrl': news_image_url,
-    'Date': firestore.SERVER_TIMESTAMP
+    'Link': news_link,
+    'Date': firestore.SERVER_TIMESTAMP,
+    'Category': ['All', 'Python']
 })
 
 print(f"News pushed to Firestore")
